@@ -1,3 +1,8 @@
+const GeminiAdvisoryService = require('./geminiService');
+
+// Initialize Gemini service
+const geminiService = new GeminiAdvisoryService();
+
 // Crop requirements for different crops grown in Machakos County
 const CROP_REQUIREMENTS = {
     'Maize': {
@@ -493,6 +498,62 @@ function getAvailableCrops() {
 }
 
 /**
+ * Generate enhanced advisory with Gemini AI
+ * @param {Object} weatherData - Processed weather data from weatherService
+ * @param {string} crop - Crop type (Maize, Beans, Sorghum)
+ * @param {string} location - Location name
+ * @returns {Promise<Object>} Enhanced advisory object with AI-generated message
+ */
+async function generateEnhancedAdvisory(weatherData, crop, location) {
+    const timestamp = new Date().toISOString();
+    console.log(`[Advisory] ${timestamp} - Generating ENHANCED advisory for ${crop} in ${location}`);
+    
+    try {
+        // First get the basic advisory
+        const basicAdvisory = generateAdvisory(weatherData, crop, location);
+        
+        // Check if Gemini is available
+        if (!geminiService.isAvailable()) {
+            console.log('[Advisory] Gemini not available, using basic advisory');
+            return {
+                ...basicAdvisory,
+                enhanced: false,
+                enhancedMessage: basicAdvisory.advisory
+            };
+        }
+
+        // Generate enhanced message with Gemini
+        console.log('[Advisory] Generating enhanced message with Gemini AI...');
+        const enhancedMessage = await geminiService.generateAdvisory(
+            crop, 
+            location, 
+            weatherData, 
+            basicAdvisory.recommendation
+        );
+
+        return {
+            ...basicAdvisory,
+            enhanced: true,
+            enhancedMessage: enhancedMessage,
+            advisory: enhancedMessage, // Use enhanced message as main advisory
+            originalAdvice: basicAdvisory.advisory, // Keep original for reference
+            generatedAt: timestamp
+        };
+        
+    } catch (error) {
+        console.error('[Advisory] Error generating enhanced advisory:', error.message);
+        // Fall back to basic advisory
+        const basicAdvisory = generateAdvisory(weatherData, crop, location);
+        return {
+            ...basicAdvisory,
+            enhanced: false,
+            enhancedMessage: basicAdvisory.advisory,
+            error: `AI enhancement failed: ${error.message}`
+        };
+    }
+}
+
+/**
  * Validate crop name
  * @param {string} crop 
  * @returns {boolean} True if crop is valid
@@ -504,6 +565,7 @@ function isValidCrop(crop) {
 // Export functions
 module.exports = {
     generateAdvisory,
+    generateEnhancedAdvisory,
     createAdvisoryMessage,
     checkWeatherWarnings,
     getAvailableCrops,
