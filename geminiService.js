@@ -6,7 +6,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
  */
 class GeminiAdvisoryService {
     constructor() {
-        this.apiKey = process.env.gemini || process.env.GEMINI_API_KEY;
+        this.apiKey = process.env.GOOGLE_AI_API_KEY || process.env.gemini || process.env.GEMINI_API_KEY;
         this.genAI = null;
         this.model = null;
         this.isConfigured = false;
@@ -81,33 +81,30 @@ class GeminiAdvisoryService {
         console.log('[GeminiAI] Weather data extraction:', { totalRainfall, avgTemperature, avgRainProbability });
         console.log('[GeminiAI] Raw weather summary:', weatherData?.summary);
         
-        return `You are an expert agricultural advisor helping a smallholder farmer in Kenya. Write a natural, conversational farming advisory message.
+        return `You are a friendly agricultural advisor helping a farmer in Kenya. Write a SHORT, simple advisory message.
 
 CONTEXT:
 - Farmer wants to plant ${crop} in ${location}, Machakos County
 - Current recommendation: ${recommendation}
 - Weather forecast: ${totalRainfall.toFixed(1)}mm rain expected over 5 days, ${avgTemperature.toFixed(1)}°C average temperature, ${avgRainProbability.toFixed(0)}% rain probability
 
-Write a complete advisory message that includes:
+EXACT FORMAT REQUIRED:
+🌾 Habari mkulima!
 
-1. A warm greeting in Swahili/English mix
-2. Clear planting recommendation with appropriate emoji
-3. Weather analysis explaining current conditions
-4. Scientific explanation of why this recommendation makes sense
-5. What will happen if they plant now vs wait
-6. Specific actions they should take
-7. Encouraging closing message
+Based on the weather forecast for your area, this is a [RECOMMENDATION] for your ${crop.toLowerCase()}! The conditions look [promising/challenging] for the next few days.
+
+Why now is [good/not ideal]:
+The weather shows ${totalRainfall.toFixed(0)}mm of rain expected over the next 5 days with temperatures around ${avgTemperature.toFixed(0)}°C - [explain if this is good or bad for the crop in simple terms]. There's a ${avgRainProbability.toFixed(0)}% chance of rain, which means [simple explanation].
 
 IMPORTANT RULES:
-- Write in natural, flowing paragraphs - NO section headers or numbering
-- Use simple language that farmers understand
-- Include emojis naturally throughout the text
-- Be warm, encouraging, and supportive
-- Give specific, practical advice
-- Mention local Machakos County context
-- Keep it conversational, not technical
+- Keep it SHORT - maximum 100 words total
+- Start with exactly "🌾 Habari mkulima!"
+- Use simple language farmers understand
+- Replace [RECOMMENDATION] with "GOOD TIME to plant" or "better to WAIT" or "NOT GOOD to plant"
+- Be encouraging but honest
+- No technical jargon
 
-Write the complete advisory message now (just the message content, no structure markers):`;
+Write the message now:`;
     }
     
     /**

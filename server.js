@@ -177,6 +177,18 @@ app.post('/api/advisory', async (req, res) => {
         } else {
             console.log('[ML] Model not available, using basic advisory');
             advisory = advisoryEngine.generateAdvisory(weatherData, crop, location);
+        // Generate enhanced advisory with Gemini AI
+        let advisory;
+        let enhanced = false;
+
+        try {
+            console.log('[API] Generating Gemini-enhanced advisory for', location, crop);
+            advisory = await advisoryEngine.generateEnhancedAdvisory(weatherData, crop, location);
+            enhanced = advisory.enhanced || false;
+        } catch (error) {
+            console.warn('[API] Gemini enhancement failed, using basic advisory:', error.message);
+            advisory = advisoryEngine.generateAdvisory(weatherData, crop, location);
+            enhanced = false;
         }
 
         // Save advisory to database
@@ -192,6 +204,9 @@ app.post('/api/advisory', async (req, res) => {
                 mlPrediction: advisory.mlPrediction,
                 generatedAt: advisory.timestamp || advisory.generatedAt,
                 mlEnabled: mlEnabled
+                enhancedMessage: advisory.enhancedMessage,
+                generatedAt: advisory.timestamp || advisory.generatedAt,
+                geminiEnhanced: enhanced
             }
         );
 
@@ -204,6 +219,8 @@ app.post('/api/advisory', async (req, res) => {
             advisory: advisory,
             mlEnabled: mlEnabled,
             modelStatus: mlPredictor.isModelTrained() ? 'available' : 'not_trained'
+            enhanced: enhanced,
+            geminiStatus: enhanced ? 'enhanced' : 'basic'
         });
 
     } catch (error) {
@@ -266,6 +283,12 @@ app.get('/api/advisory', async (req, res) => {
             console.log('[ML] Model not available, using basic advisory');
             advisory = advisoryEngine.generateAdvisory(weatherData, crop, location);
         }
+        // Generate advisory with Gemini enhancement
+        console.log(`[API] Generating enhanced advisory for ${crop} in ${location}`);
+        const advisory = await advisoryEngine.generateEnhancedAdvisory(weatherData, crop, location);
+        const enhanced = advisory.isEnhanced || false;
+        
+        console.log(`[API] Advisory generated - Enhanced: ${enhanced}`);
         
         // Save advisory to database (for any registered farmer or general tracking)
         const saveResult = await database.saveAdvisory(
@@ -280,6 +303,13 @@ app.get('/api/advisory', async (req, res) => {
                 mlPrediction: advisory.mlPrediction,
                 generatedAt: advisory.timestamp || advisory.generatedAt,
                 mlEnabled: mlEnabled
+            enhanced ? advisory.enhancedMessage : (advisory.recommendation || advisory.advisory),
+            {
+                weatherSummary: advisory.details || advisory.weather,
+                forecast: advisory.forecast,
+                generatedAt: advisory.timestamp || advisory.generatedAt,
+                enhanced: enhanced,
+                geminiUsed: enhanced
             }
         );
         
@@ -292,6 +322,8 @@ app.get('/api/advisory', async (req, res) => {
             advisory: advisory,
             mlEnabled: mlEnabled,
             modelStatus: mlPredictor.isModelTrained() ? 'available' : 'not_trained'
+            enhanced: enhanced,
+            geminiStatus: enhanced ? 'enhanced' : 'basic'
         });
         
     } catch (error) {
