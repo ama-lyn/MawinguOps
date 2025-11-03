@@ -161,6 +161,22 @@ app.post('/api/advisory', async (req, res) => {
         // Get weather data
         const weatherData = await weatherService.getWeather(location);
 
+        // Try to get ML-enhanced advisory if model is available
+        let advisory;
+        let mlEnabled = false;
+
+        if (mlPredictor.isModelTrained()) {
+            try {
+                console.log('[ML] Using ML-enhanced advisory for', location, crop);
+                advisory = await mlPredictor.getEnhancedAdvisory(location, crop, weatherData);
+                mlEnabled = true;
+            } catch (error) {
+                console.warn('[ML] ML prediction failed, falling back to basic advisory:', error.message);
+                advisory = advisoryEngine.generateAdvisory(weatherData, crop, location);
+            }
+        } else {
+            console.log('[ML] Model not available, using basic advisory');
+            advisory = advisoryEngine.generateAdvisory(weatherData, crop, location);
         // Generate enhanced advisory with Gemini AI
         let advisory;
         let enhanced = false;
@@ -185,6 +201,9 @@ app.post('/api/advisory', async (req, res) => {
             {
                 weatherSummary: advisory.details || advisory.weather,
                 forecast: advisory.forecast,
+                mlPrediction: advisory.mlPrediction,
+                generatedAt: advisory.timestamp || advisory.generatedAt,
+                mlEnabled: mlEnabled
                 enhancedMessage: advisory.enhancedMessage,
                 generatedAt: advisory.timestamp || advisory.generatedAt,
                 geminiEnhanced: enhanced
@@ -198,6 +217,8 @@ app.post('/api/advisory', async (req, res) => {
         return res.json({
             success: true,
             advisory: advisory,
+            mlEnabled: mlEnabled,
+            modelStatus: mlPredictor.isModelTrained() ? 'available' : 'not_trained'
             enhanced: enhanced,
             geminiStatus: enhanced ? 'enhanced' : 'basic'
         });
@@ -245,6 +266,23 @@ app.get('/api/advisory', async (req, res) => {
         // Get weather data
         const weatherData = await weatherService.getWeather(location);
         
+        // Try to get ML-enhanced advisory if model is available
+        let advisory;
+        let mlEnabled = false;
+        
+        if (mlPredictor.isModelTrained()) {
+            try {
+                console.log('[ML] Using ML-enhanced advisory for', location, crop);
+                advisory = await mlPredictor.getEnhancedAdvisory(location, crop, weatherData);
+                mlEnabled = true;
+            } catch (error) {
+                console.warn('[ML] ML prediction failed, falling back to basic advisory:', error.message);
+                advisory = advisoryEngine.generateAdvisory(weatherData, crop, location);
+            }
+        } else {
+            console.log('[ML] Model not available, using basic advisory');
+            advisory = advisoryEngine.generateAdvisory(weatherData, crop, location);
+        }
         // Generate advisory with Gemini enhancement
         console.log(`[API] Generating enhanced advisory for ${crop} in ${location}`);
         const advisory = await advisoryEngine.generateEnhancedAdvisory(weatherData, crop, location);
@@ -258,6 +296,13 @@ app.get('/api/advisory', async (req, res) => {
             location,
             crop,
             advisory.recommendation || advisory.advisory,
+            advisory.recommendation || advisory.advisory,
+            {
+                weatherSummary: advisory.details || advisory.weather,
+                forecast: advisory.forecast,
+                mlPrediction: advisory.mlPrediction,
+                generatedAt: advisory.timestamp || advisory.generatedAt,
+                mlEnabled: mlEnabled
             enhanced ? advisory.enhancedMessage : (advisory.recommendation || advisory.advisory),
             {
                 weatherSummary: advisory.details || advisory.weather,
@@ -275,6 +320,8 @@ app.get('/api/advisory', async (req, res) => {
         res.json({
             success: true,
             advisory: advisory,
+            mlEnabled: mlEnabled,
+            modelStatus: mlPredictor.isModelTrained() ? 'available' : 'not_trained'
             enhanced: enhanced,
             geminiStatus: enhanced ? 'enhanced' : 'basic'
         });
